@@ -1,0 +1,40 @@
+name: Telegram Daily Digest
+
+on:
+  schedule:
+    # 5:00 AM UTC = 6:00 AM UTC+1, matching the schedule used by the other daily bots
+    - cron: "0 5 * * *"
+  workflow_dispatch: {}   # allows manual runs from the Actions tab for testing
+
+permissions:
+  contents: write   # needed so the workflow can commit the updated state file back
+
+jobs:
+  send-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run digest bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          EMAILS_TO_CHECK: ${{ secrets.EMAILS_TO_CHECK }}
+        run: python main.py
+
+      - name: Commit updated state file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state/bot_state.json
+          git diff --staged --quiet || git commit -m "Update bot state [skip ci]"
+          git push
